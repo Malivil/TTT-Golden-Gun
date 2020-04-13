@@ -1,0 +1,13 @@
+{
+  "title": "TTT Golden Gun (D Weapon) for Custom Roles",
+  "type": "ServerContent",
+  "ignore": [
+    ".git*",
+    "*.iml",
+    ".idea*",
+    "*.psd",
+    "*.vcproj",
+    "*.svn*",
+    "LICENSE"
+  ]
+}
