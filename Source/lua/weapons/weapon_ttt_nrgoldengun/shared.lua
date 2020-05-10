@@ -13,7 +13,10 @@ if SERVER then
 	resource.AddFile("materials/models/weapons/v_models/powerdeagle/suppressor.vtf")
 	resource.AddFile("materials/models/weapons/v_models/feets/v_hands.vmt")
 	resource.AddFile("materials/models/weapons/v_models/feets/v_hands.vtf")
-	resource.AddFile("materials/models/weapons/v_models/feets/v_hands_normal.vtf")
+    resource.AddFile("materials/models/weapons/v_models/feets/v_hands_normal.vtf")
+
+    util.AddNetworkString("TTT_RoleChanged")
+    util.AddNetworkString("TTT_Zombified")
 end
 
 if CLIENT then
@@ -66,6 +69,17 @@ if CLIENT then
 end
 
 if SERVER then resource.AddFile("materials/VGUI/ttt/icon_flux_goldengun.vmt") end
+
+function SetRole(ply, role)
+    ply:SetRole(role)
+
+    if SERVER then
+        net.Start("TTT_RoleChanged")
+        net.WriteInt(ply:UserID(), 8)
+        net.WriteInt(role, 8)
+        net.Broadcast()
+    end
+end
 
 function SWEP:PrimaryAttack()
     if (not self:CanPrimaryAttack()) then return end
@@ -133,7 +147,12 @@ function SWEP:PrimaryAttack()
             self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
             self:TakePrimaryAmmo(1)
             if SERVER then
+                net.Start("TTT_Zombified")
+                net.WriteString(self.Owner:Nick())
+                net.Broadcast()
+
                 self.Owner:SetRole(ROLE_ZOMBIE)
+                self.Owner:SetZombiePrime(false)
                 self.Owner:StripWeapons()
                 self.Owner:Give("weapon_zom_claws")
                 SendFullStateUpdate()
@@ -144,8 +163,8 @@ function SWEP:PrimaryAttack()
             self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
             self:TakePrimaryAmmo(1)
             if SERVER then
-                self.Owner:SetRole(ROLE_VAMPIRE)
-                self.Owner:StripWeapons()
+                SetRole(self.Owner, ROLE_VAMPIRE)
+                self.Owner:StripWeapon("weapon_ttt_wtester")
                 self.Owner:Give("weapon_vam_fangs")
                 SendFullStateUpdate()
             end
