@@ -70,16 +70,9 @@ end
 
 if SERVER then resource.AddFile("materials/VGUI/ttt/icon_flux_goldengun.vmt") end
 
-function SetRole(ply, role)
-    ply:SetRole(role)
-
-    if SERVER then
-        net.Start("TTT_RoleChanged")
-        net.WriteInt(ply:UserID(), 8)
-        net.WriteInt(role, 8)
-        net.Broadcast()
-    end
-end
+CreateConVar("ttt_gdeagle_killer_damage", "35")
+CreateConVar("ttt_gdeagle_vampire_heal", "50")
+CreateConVar("ttt_gdeagle_vampire_overheal", "25")
 
 function SWEP:PrimaryAttack()
     if (not self:CanPrimaryAttack()) then return end
@@ -88,8 +81,10 @@ function SWEP:PrimaryAttack()
     local tr = util.TraceLine(trace)
 
     if tr.Entity.IsPlayer() then
+        -- Kill traitors outright
         if tr.Entity:IsRole(ROLE_TRAITOR) or tr.Entity:IsRole(ROLE_HYPNOTIST) or tr.Entity:IsRole(ROLE_ASSASSIN) then
             local bullet = {}
+            bullet.Attacker = self.Owner
             bullet.Num = self.Primary.NumberofShots
             bullet.Src = self.Owner:GetShootPos()
             bullet.Dir = self.Owner:GetAimVector()
@@ -103,12 +98,14 @@ function SWEP:PrimaryAttack()
             self:TakePrimaryAmmo(1)
             self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
             return
+        -- Kill the owner if the target was innocent
         elseif tr.Entity:IsRole(ROLE_INNOCENT) or tr.Entity:IsRole(ROLE_DETECTIVE) or tr.Entity:IsRole(ROLE_MERCENARY) or tr.Entity:IsRole(ROLE_GLITCH) then
             self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
             self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
             self:TakePrimaryAmmo(1)
             if SERVER then self.Owner:Kill() end
             return
+        -- Kill the Jester/Swapper
         elseif tr.Entity:IsRole(ROLE_JESTER) or tr.Entity:IsRole(ROLE_SWAPPER) then
             self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
             self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
@@ -119,29 +116,33 @@ function SWEP:PrimaryAttack()
                 tr.Entity:Kill()
             end
             return
+        -- Set the owner on fire for 5 seconds
         elseif tr.Entity:IsRole(ROLE_PHANTOM) then
             self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
             self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
             self:TakePrimaryAmmo(1)
             if SERVER then self.Owner:Ignite(5) end
             return
+        -- Reduce the health of both the Owner and the Target by the configured amount
         elseif tr.Entity:IsRole(ROLE_KILLER) then
             self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
             self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
             self:TakePrimaryAmmo(1)
             if SERVER then
-                if self.Owner:Health() >= 36 then
-                    self.Owner:SetHealth(self.Owner:Health() - 35)
+                local killerdamage = GetConVar("ttt_gdeagle_killer_damage"):GetInt()
+                if self.Owner:Health() > killerdamage then
+                    self.Owner:SetHealth(self.Owner:Health() - killerdamage)
                 else
                     self.Owner:Kill()
                 end
-                if tr.Entity:Health() >= 36 then
-                    tr.Entity:SetHealth(tr.Entity:Health() - 35)
+                if tr.Entity:Health() > killerdamage then
+                    tr.Entity:SetHealth(tr.Entity:Health() - killerdamage)
                 else
                     tr.Entity:Kill()
                 end
             end
             return
+        -- Turn the owner into a Zombie thrall
         elseif tr.Entity:IsRole(ROLE_ZOMBIE) then
             self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
             self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
@@ -158,15 +159,19 @@ function SWEP:PrimaryAttack()
                 SendFullStateUpdate()
             end
             return
+        -- Turn the owner into a pile of bones and heal the target
         elseif tr.Entity:IsRole(ROLE_VAMPIRE) then
             self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
             self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
             self:TakePrimaryAmmo(1)
             if SERVER then
-                SetRole(self.Owner, ROLE_VAMPIRE)
-                self.Owner:StripWeapon("weapon_ttt_wtester")
-                self.Owner:Give("weapon_vam_fangs")
-                SendFullStateUpdate()
+                local vamheal = GetConVar("ttt_gdeagle_vampire_heal"):GetInt()
+                local vamoverheal = GetConVar("ttt_gdeagle_vampire_overheal"):GetInt()
+                tr.Entity:SetHealth(math.min(tr.Entity:Health() + vamheal, tr.Entity:GetMaxHealth() + vamoverheal))
+                self:DropBones(self.Owner)
+                local sid = self.Owner:SteamID()
+                self.Owner:Kill()
+                RemoveRagdoll(sid)
             end
             return
         end
@@ -178,3 +183,43 @@ function SWEP:PrimaryAttack()
     self.Owner:EmitSound(Sound("Weapon_Deagle.Single"))
 end
 
+function RemoveRagdoll(sid)
+    local ragdolls = ents.FindByClass("prop_ragdoll")
+    for _, r in pairs(ragdolls) do
+        if IsValid(r) and r.player_ragdoll == true and r.sid == sid then
+            r:Remove()
+        end
+    end
+end
+
+function SWEP:DropBones(target)
+	local pos = target:GetPos()
+
+	local skull = ents.Create("prop_physics")
+	if not IsValid(skull) then return end
+	skull:SetModel("models/Gibs/HGIBS.mdl")
+	skull:SetPos(pos)
+	skull:Spawn()
+	skull:SetCollisionGroup(COLLISION_GROUP_WEAPON)
+
+	local ribs = ents.Create("prop_physics")
+	if not IsValid(ribs) then return end
+	ribs:SetModel("models/Gibs/HGIBS_rib.mdl")
+	ribs:SetPos(pos + Vector(0, 0, 15))
+	ribs:Spawn()
+	ribs:SetCollisionGroup(COLLISION_GROUP_WEAPON)
+
+	local spine = ents.Create("prop_physics")
+	if not IsValid(ribs) then return end
+	spine:SetModel("models/Gibs/HGIBS_spine.mdl")
+	spine:SetPos(pos + Vector(0, 0, 30))
+	spine:Spawn()
+	spine:SetCollisionGroup(COLLISION_GROUP_WEAPON)
+
+	local scapula = ents.Create("prop_physics")
+	if not IsValid(scapula) then return end
+	scapula:SetModel("models/Gibs/HGIBS_scapula.mdl")
+	scapula:SetPos(pos + Vector(0, 0, 45))
+	scapula:Spawn()
+	scapula:SetCollisionGroup(COLLISION_GROUP_WEAPON)
+end
