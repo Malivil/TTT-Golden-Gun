@@ -15,7 +15,6 @@ if SERVER then
 	resource.AddFile("materials/models/weapons/v_models/feets/v_hands.vtf")
     resource.AddFile("materials/models/weapons/v_models/feets/v_hands_normal.vtf")
 
-    util.AddNetworkString("TTT_RoleChanged")
     util.AddNetworkString("TTT_Zombified")
 end
 
