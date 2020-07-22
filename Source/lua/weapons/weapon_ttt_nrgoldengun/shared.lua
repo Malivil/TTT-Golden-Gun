@@ -176,7 +176,6 @@ function SWEP:PrimaryAttack()
         end
     end
 
-    SendFullStateUpdate()
     self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
     self:TakePrimaryAmmo(1)
     self.Owner:EmitSound(Sound("Weapon_Deagle.Single"))
