@@ -73,6 +73,17 @@ CreateConVar("ttt_gdeagle_killer_damage", "35")
 CreateConVar("ttt_gdeagle_vampire_heal", "50")
 CreateConVar("ttt_gdeagle_vampire_overheal", "25")
 
+ROLE_MERCENARY = ROLE_MERCENARY or ROLE_SURVIVALIST or -1
+ROLE_PHANTOM = ROLE_PHANTOM or ROLE_PHOENIX or -1
+ROLE_KILLER = ROLE_KILLER or ROLE_SERIALKILLER or -1
+ROLE_ZOMBIE = ROLE_ZOMBIE or ROLE_INFECTED or -1
+ROLE_SWAPPER = ROLE_SWAPPER or -1
+ROLE_GLITCH = ROLE_GLITCH or -1
+ROLE_HYPNOTIST = ROLE_HYPNOTIST or -1
+ROLE_ASSASSIN = ROLE_ASSASSIN or -1
+ROLE_DETRAITOR = ROLE_DETRAITOR or -1
+ROLE_VAMPIRE = ROLE_VAMPIRE or -1
+
 function SWEP:PrimaryAttack()
     if (not self:CanPrimaryAttack()) then return end
     self:SetNextPrimaryFire(CurTime() + self.Primary.Delay)
@@ -81,7 +92,7 @@ function SWEP:PrimaryAttack()
 
     if tr.Entity.IsPlayer() then
         -- Kill traitors outright
-        if tr.Entity:IsRole(ROLE_TRAITOR) or tr.Entity:IsRole(ROLE_HYPNOTIST) or tr.Entity:IsRole(ROLE_ASSASSIN) then
+        if tr.Entity:IsRole(ROLE_TRAITOR) or tr.Entity:IsRole(ROLE_HYPNOTIST) or tr.Entity:IsRole(ROLE_ASSASSIN) or tr.Entity:IsRole(ROLE_DETRAITOR) then
             local bullet = {}
             bullet.Attacker = self.Owner
             bullet.Num = self.Primary.NumberofShots
