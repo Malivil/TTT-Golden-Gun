@@ -84,6 +84,29 @@ ROLE_ASSASSIN = ROLE_ASSASSIN or -1
 ROLE_DETRAITOR = ROLE_DETRAITOR or -1
 ROLE_VAMPIRE = ROLE_VAMPIRE or -1
 
+local function IsInnocentTeam(ply)
+    if ply.IsInnocentTeam then return ply:IsInnocentTeam() end
+    local role = ply:GetRole()
+    return role == ROLE_DETECTIVE or role == ROLE_INNOCENT or role == ROLE_MERCENARY or role == ROLE_PHANTOM or role == ROLE_GLITCH
+end
+
+local function IsTraitorTeam(ply)
+    if player.IsTraitorTeam then return player.IsTraitorTeam(ply) end
+    if ply.IsTraitorTeam then return ply:IsTraitorTeam() end
+    local role = ply:GetRole()
+    return role == ROLE_TRAITOR or role == ROLE_HYPNOTIST or role == ROLE_ASSASSIN or role == ROLE_DETRAITOR
+end
+
+local function IsJesterTeam(ply)
+    if ply.IsJesterTeam then return ply:IsJesterTeam() end
+    local role = ply:GetRole()
+    return role == ROLE_JESTER or role == ROLE_SWAPPER
+end
+
+local function IsIndependentTeam(ply)
+    return ply.IsIndependentTeam and ply:IsIndependentTeam()
+end
+
 function SWEP:PrimaryAttack()
     if (not self:CanPrimaryAttack()) then return end
     self:SetNextPrimaryFire(CurTime() + self.Primary.Delay)
@@ -91,8 +114,80 @@ function SWEP:PrimaryAttack()
     local tr = util.TraceLine(trace)
 
     if tr.Entity.IsPlayer() then
+        local ply = tr.Entity
+        -- Kill the jester team and the shooter
+        if IsJesterTeam(ply) then
+            self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
+            self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
+            self:TakePrimaryAmmo(1)
+            if SERVER then
+                self.Owner:Kill()
+                ply:SetHealth(0)
+                ply:Kill()
+            end
+            return
+        -- Set the owner on fire for 5 seconds
+        elseif ply:GetRole() == ROLE_PHANTOM then
+            self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
+            self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
+            self:TakePrimaryAmmo(1)
+            if SERVER then self.Owner:Ignite(5) end
+            return
+        -- Reduce the health of both the Owner and the Target by the configured amount
+        elseif ply:GetRole() == ROLE_KILLER then
+            self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
+            self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
+            self:TakePrimaryAmmo(1)
+            if SERVER then
+                local killerdamage = GetConVar("ttt_gdeagle_killer_damage"):GetInt()
+                if self.Owner:Health() > killerdamage then
+                    self.Owner:SetHealth(self.Owner:Health() - killerdamage)
+                else
+                    self.Owner:Kill()
+                end
+                if ply:Health() > killerdamage then
+                    ply:SetHealth(ply:Health() - killerdamage)
+                else
+                    ply:Kill()
+                end
+            end
+            return
+        -- Turn the owner into a Zombie thrall
+        elseif ply:GetRole() == ROLE_ZOMBIE then
+            self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
+            self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
+            self:TakePrimaryAmmo(1)
+            if SERVER then
+                net.Start("TTT_Zombified")
+                net.WriteString(self.Owner:Nick())
+                net.Broadcast()
+
+                self.Owner:SetRole(ROLE_ZOMBIE)
+                if self.Owner.SetZombiePrime then
+                    self.Owner:SetZombiePrime(false)
+                end
+                self.Owner:StripWeapons()
+                self.Owner:Give("weapon_zom_claws")
+                SendFullStateUpdate()
+            end
+            return
+        -- Turn the owner into a pile of bones and heal the target
+        elseif ply:GetRole() == ROLE_VAMPIRE then
+            self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
+            self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
+            self:TakePrimaryAmmo(1)
+            if SERVER then
+                local vamheal = GetConVar("ttt_gdeagle_vampire_heal"):GetInt()
+                local vamoverheal = GetConVar("ttt_gdeagle_vampire_overheal"):GetInt()
+                ply:SetHealth(math.min(ply:Health() + vamheal, ply:GetMaxHealth() + vamoverheal))
+                self:DropBones(self.Owner)
+                local sid = self.Owner:SteamID()
+                self.Owner:Kill()
+                RemoveRagdoll(sid)
+            end
+            return
         -- Kill traitors outright
-        if tr.Entity:IsRole(ROLE_TRAITOR) or tr.Entity:IsRole(ROLE_HYPNOTIST) or tr.Entity:IsRole(ROLE_ASSASSIN) or tr.Entity:IsRole(ROLE_DETRAITOR) then
+        elseif IsTraitorTeam(ply) then
             local bullet = {}
             bullet.Attacker = self.Owner
             bullet.Num = self.Primary.NumberofShots
@@ -109,80 +204,26 @@ function SWEP:PrimaryAttack()
             self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
             return
         -- Kill the owner if the target was innocent
-        elseif tr.Entity:IsRole(ROLE_INNOCENT) or tr.Entity:IsRole(ROLE_DETECTIVE) or tr.Entity:IsRole(ROLE_MERCENARY) or tr.Entity:IsRole(ROLE_GLITCH) then
+        elseif IsInnocentTeam(ply) then
             self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
             self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
             self:TakePrimaryAmmo(1)
             if SERVER then self.Owner:Kill() end
             return
-        -- Kill the Jester/Swapper
-        elseif tr.Entity:IsRole(ROLE_JESTER) or tr.Entity:IsRole(ROLE_SWAPPER) then
-            self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
-            self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
-            self:TakePrimaryAmmo(1)
-            if SERVER then
-                self.Owner:Kill()
-                tr.Entity:SetHealth(0)
-                tr.Entity:Kill()
+        -- Set the shooter's health to the target's health, if it's less than 100
+        -- Then restore the target's max health to at least 100 and fully heal them
+        elseif IsIndependentTeam(ply) then
+            local hp = ply:Health()
+            if hp < 100 and hp < self.Owner:Health() then
+                self.Owner:SetHealth(hp)
             end
-            return
-        -- Set the owner on fire for 5 seconds
-        elseif tr.Entity:IsRole(ROLE_PHANTOM) then
-            self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
-            self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
-            self:TakePrimaryAmmo(1)
-            if SERVER then self.Owner:Ignite(5) end
-            return
-        -- Reduce the health of both the Owner and the Target by the configured amount
-        elseif tr.Entity:IsRole(ROLE_KILLER) then
-            self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
-            self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
-            self:TakePrimaryAmmo(1)
-            if SERVER then
-                local killerdamage = GetConVar("ttt_gdeagle_killer_damage"):GetInt()
-                if self.Owner:Health() > killerdamage then
-                    self.Owner:SetHealth(self.Owner:Health() - killerdamage)
-                else
-                    self.Owner:Kill()
-                end
-                if tr.Entity:Health() > killerdamage then
-                    tr.Entity:SetHealth(tr.Entity:Health() - killerdamage)
-                else
-                    tr.Entity:Kill()
-                end
-            end
-            return
-        -- Turn the owner into a Zombie thrall
-        elseif tr.Entity:IsRole(ROLE_ZOMBIE) then
-            self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
-            self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
-            self:TakePrimaryAmmo(1)
-            if SERVER then
-                net.Start("TTT_Zombified")
-                net.WriteString(self.Owner:Nick())
-                net.Broadcast()
 
-                self.Owner:SetRole(ROLE_ZOMBIE)
-                self.Owner:SetZombiePrime(false)
-                self.Owner:StripWeapons()
-                self.Owner:Give("weapon_zom_claws")
-                SendFullStateUpdate()
+            local max = ply:GetMaxHealth()
+            if max < 100 then
+                max = 100
             end
-            return
-        -- Turn the owner into a pile of bones and heal the target
-        elseif tr.Entity:IsRole(ROLE_VAMPIRE) then
-            self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
-            self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
-            self:TakePrimaryAmmo(1)
-            if SERVER then
-                local vamheal = GetConVar("ttt_gdeagle_vampire_heal"):GetInt()
-                local vamoverheal = GetConVar("ttt_gdeagle_vampire_overheal"):GetInt()
-                tr.Entity:SetHealth(math.min(tr.Entity:Health() + vamheal, tr.Entity:GetMaxHealth() + vamoverheal))
-                self:DropBones(self.Owner)
-                local sid = self.Owner:SteamID()
-                self.Owner:Kill()
-                RemoveRagdoll(sid)
-            end
+            ply:SetMaxHealth(max)
+            ply:SetHealth(max)
             return
         end
     end

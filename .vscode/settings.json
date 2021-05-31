@@ -35,6 +35,7 @@
         "ROLE_SURVIVALIST",
         "ROLE_PHOENIX",
         "ROLE_SERIALKILLER",
-        "ROLE_INFECTED"
+        "ROLE_INFECTED",
+        "player"
     ]
 }
