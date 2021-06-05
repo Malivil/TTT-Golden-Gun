@@ -83,6 +83,7 @@ ROLE_HYPNOTIST = ROLE_HYPNOTIST or -1
 ROLE_ASSASSIN = ROLE_ASSASSIN or -1
 ROLE_DETRAITOR = ROLE_DETRAITOR or -1
 ROLE_VAMPIRE = ROLE_VAMPIRE or -1
+ROLE_DRUNK = ROLE_DRUNK or -1
 
 local function IsInnocentTeam(ply)
     if ply.IsInnocentTeam then return ply:IsInnocentTeam() end
@@ -209,6 +210,22 @@ function SWEP:PrimaryAttack()
             self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
             self:TakePrimaryAmmo(1)
             if SERVER then self.Owner:Kill() end
+            return
+        -- Have the drunk immediately remember their role
+        elseif ply:GetRole() == ROLE_DRUNK then
+            if math.random() <= GetConVar("ttt_drunk_innocent_chance"):GetFloat() then
+                ply:SetRole(ROLE_INNOCENT)
+                ply:SetNWBool("WasDrunk", true)
+                ply:PrintMessage(HUD_PRINTTALK, "You have remembered that you are an innocent.")
+                ply:PrintMessage(HUD_PRINTCENTER, "You have remembered that you are an innocent.")
+            else
+                ply:SetRole(ROLE_TRAITOR)
+                ply:SetNWBool("WasDrunk", true)
+                ply:SetCredits(1)
+                ply:PrintMessage(HUD_PRINTTALK, "You have remembered that you are a traitor.")
+                ply:PrintMessage(HUD_PRINTCENTER, "You have remembered that you are a traitor.")
+            end
+            SendFullStateUpdate()
             return
         -- Set the shooter's health to the target's health, if it's less than 100
         -- Then restore the target's max health to at least 100 and fully heal them

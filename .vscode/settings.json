@@ -36,6 +36,9 @@
         "ROLE_PHOENIX",
         "ROLE_SERIALKILLER",
         "ROLE_INFECTED",
-        "player"
+        "player",
+        "ROLE_DRUNK",
+        "HUD_PRINTTALK",
+        "HUD_PRINTCENTER"
     ]
 }
