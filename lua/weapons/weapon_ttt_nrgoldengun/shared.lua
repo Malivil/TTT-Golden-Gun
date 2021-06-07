@@ -16,6 +16,7 @@ if SERVER then
     resource.AddFile("materials/models/weapons/v_models/feets/v_hands_normal.vtf")
 
     util.AddNetworkString("TTT_Zombified")
+    util.AddNetworkString("TTT_DrunkSober")
 end
 
 if CLIENT then
@@ -111,34 +112,26 @@ end
 function SWEP:PrimaryAttack()
     if (not self:CanPrimaryAttack()) then return end
     self:SetNextPrimaryFire(CurTime() + self.Primary.Delay)
+    self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
+    self:TakePrimaryAmmo(1)
+    self.Owner:EmitSound(Sound("Weapon_Deagle.Single"))
+
     local trace = util.GetPlayerTrace(self.Owner)
     local tr = util.TraceLine(trace)
-
     if tr.Entity.IsPlayer() then
         local ply = tr.Entity
         -- Kill the jester team and the shooter
         if IsJesterTeam(ply) then
-            self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
-            self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
-            self:TakePrimaryAmmo(1)
             if SERVER then
                 self.Owner:Kill()
                 ply:SetHealth(0)
                 ply:Kill()
             end
-            return
         -- Set the owner on fire for 5 seconds
         elseif ply:GetRole() == ROLE_PHANTOM then
-            self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
-            self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
-            self:TakePrimaryAmmo(1)
             if SERVER then self.Owner:Ignite(5) end
-            return
         -- Reduce the health of both the Owner and the Target by the configured amount
         elseif ply:GetRole() == ROLE_KILLER then
-            self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
-            self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
-            self:TakePrimaryAmmo(1)
             if SERVER then
                 local killerdamage = GetConVar("ttt_gdeagle_killer_damage"):GetInt()
                 if self.Owner:Health() > killerdamage then
@@ -152,12 +145,8 @@ function SWEP:PrimaryAttack()
                     ply:Kill()
                 end
             end
-            return
         -- Turn the owner into a Zombie thrall
         elseif ply:GetRole() == ROLE_ZOMBIE then
-            self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
-            self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
-            self:TakePrimaryAmmo(1)
             if SERVER then
                 net.Start("TTT_Zombified")
                 net.WriteString(self.Owner:Nick())
@@ -171,12 +160,8 @@ function SWEP:PrimaryAttack()
                 self.Owner:Give("weapon_zom_claws")
                 SendFullStateUpdate()
             end
-            return
         -- Turn the owner into a pile of bones and heal the target
         elseif ply:GetRole() == ROLE_VAMPIRE then
-            self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
-            self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
-            self:TakePrimaryAmmo(1)
             if SERVER then
                 local vamheal = GetConVar("ttt_gdeagle_vampire_heal"):GetInt()
                 local vamoverheal = GetConVar("ttt_gdeagle_vampire_overheal"):GetInt()
@@ -186,7 +171,6 @@ function SWEP:PrimaryAttack()
                 self.Owner:Kill()
                 RemoveRagdoll(sid)
             end
-            return
         -- Kill traitors outright
         elseif IsTraitorTeam(ply) then
             local bullet = {}
@@ -200,33 +184,31 @@ function SWEP:PrimaryAttack()
             bullet.Damage = 4000
             bullet.AmmoType = self.Primary.Ammo
             self.Owner:FireBullets(bullet)
-            self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
-            self:TakePrimaryAmmo(1)
-            self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
-            return
         -- Kill the owner if the target was innocent
         elseif IsInnocentTeam(ply) then
-            self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
-            self.Weapon:EmitSound(Sound("Weapon_Deagle.Single"))
-            self:TakePrimaryAmmo(1)
             if SERVER then self.Owner:Kill() end
-            return
         -- Have the drunk immediately remember their role
         elseif ply:GetRole() == ROLE_DRUNK then
-            if math.random() <= GetConVar("ttt_drunk_innocent_chance"):GetFloat() then
-                ply:SetRole(ROLE_INNOCENT)
-                ply:SetNWBool("WasDrunk", true)
-                ply:PrintMessage(HUD_PRINTTALK, "You have remembered that you are an innocent.")
-                ply:PrintMessage(HUD_PRINTCENTER, "You have remembered that you are an innocent.")
+            local innocent = math.random() <= GetConVar("ttt_drunk_innocent_chance"):GetFloat()
+            local role = innocent and ROLE_INNOCENT or ROLE_TRAITOR
+            local roleString = innocent and "an innocent" or "a traitor"
+
+            if CLIENT then
+                ply:PrintMessage(HUD_PRINTTALK, "You have remembered that you are " .. roleString .. ".")
+                ply:PrintMessage(HUD_PRINTCENTER, "You have remembered that you are " .. roleString .. ".")
             else
-                ply:SetRole(ROLE_TRAITOR)
                 ply:SetNWBool("WasDrunk", true)
-                ply:SetCredits(1)
-                ply:PrintMessage(HUD_PRINTTALK, "You have remembered that you are a traitor.")
-                ply:PrintMessage(HUD_PRINTCENTER, "You have remembered that you are a traitor.")
+                ply:SetRole(role)
+                if not innocent then
+                    ply:SetCredits(GetConVar("ttt_credits_starting"):GetInt())
+                end
+                net.Start("TTT_DrunkSober")
+                net.WriteString(ply:Nick())
+                net.WriteString(roleString)
+                net.Broadcast()
+
+                SendFullStateUpdate()
             end
-            SendFullStateUpdate()
-            return
         -- Set the shooter's health to the target's health, if it's less than 100
         -- Then restore the target's max health to at least 100 and fully heal them
         elseif IsIndependentTeam(ply) then
@@ -241,13 +223,8 @@ function SWEP:PrimaryAttack()
             end
             ply:SetMaxHealth(max)
             ply:SetHealth(max)
-            return
         end
     end
-
-    self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
-    self:TakePrimaryAmmo(1)
-    self.Owner:EmitSound(Sound("Weapon_Deagle.Single"))
 end
 
 function RemoveRagdoll(sid)
