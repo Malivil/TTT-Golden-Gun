@@ -120,15 +120,8 @@ function SWEP:PrimaryAttack()
     local tr = util.TraceLine(trace)
     if tr.Entity.IsPlayer() then
         local ply = tr.Entity
-        -- Kill the jester team and the shooter
-        if IsJesterTeam(ply) then
-            if SERVER then
-                self.Owner:Kill()
-                ply:SetHealth(0)
-                ply:Kill()
-            end
         -- Set the owner on fire for 5 seconds
-        elseif ply:GetRole() == ROLE_PHANTOM then
+        if ply:GetRole() == ROLE_PHANTOM then
             if SERVER then self.Owner:Ignite(5) end
         -- Reduce the health of both the Owner and the Target by the configured amount
         elseif ply:GetRole() == ROLE_KILLER then
@@ -171,22 +164,6 @@ function SWEP:PrimaryAttack()
                 self.Owner:Kill()
                 RemoveRagdoll(sid)
             end
-        -- Kill traitors outright
-        elseif IsTraitorTeam(ply) then
-            local bullet = {}
-            bullet.Attacker = self.Owner
-            bullet.Num = self.Primary.NumberofShots
-            bullet.Src = self.Owner:GetShootPos()
-            bullet.Dir = self.Owner:GetAimVector()
-            bullet.Spread = Vector(0, 0, 0)
-            bullet.Tracer = 0
-            bullet.Force = 3000
-            bullet.Damage = 4000
-            bullet.AmmoType = self.Primary.Ammo
-            self.Owner:FireBullets(bullet)
-        -- Kill the owner if the target was innocent
-        elseif IsInnocentTeam(ply) then
-            if SERVER then self.Owner:Kill() end
         -- Have the drunk immediately remember their role
         elseif ply:GetRole() == ROLE_DRUNK then
             local innocent = math.random() <= GetConVar("ttt_drunk_innocent_chance"):GetFloat()
@@ -209,6 +186,22 @@ function SWEP:PrimaryAttack()
 
                 SendFullStateUpdate()
             end
+        -- Kill traitors outright
+        elseif IsTraitorTeam(ply) then
+            local bullet = {}
+            bullet.Attacker = self.Owner
+            bullet.Num = self.Primary.NumberofShots
+            bullet.Src = self.Owner:GetShootPos()
+            bullet.Dir = self.Owner:GetAimVector()
+            bullet.Spread = Vector(0, 0, 0)
+            bullet.Tracer = 0
+            bullet.Force = 3000
+            bullet.Damage = 4000
+            bullet.AmmoType = self.Primary.Ammo
+            self.Owner:FireBullets(bullet)
+        -- Kill the owner if the target was innocent
+        elseif IsInnocentTeam(ply) then
+            if SERVER then self.Owner:Kill() end
         -- Set the shooter's health to the target's health, if it's less than 100
         -- Then restore the target's max health to at least 100 and fully heal them
         elseif IsIndependentTeam(ply) then
@@ -223,6 +216,13 @@ function SWEP:PrimaryAttack()
             end
             ply:SetMaxHealth(max)
             ply:SetHealth(max)
+        -- Kill the jester team and the shooter
+        elseif IsJesterTeam(ply) then
+            if SERVER then
+                self.Owner:Kill()
+                ply:SetHealth(0)
+                ply:Kill()
+            end
         end
     end
 end
