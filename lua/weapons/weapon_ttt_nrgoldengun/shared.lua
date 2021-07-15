@@ -213,10 +213,20 @@ function SWEP:PrimaryAttack()
                 ply:SetRole(attacker_role)
 
                 ply:StripWeapon("weapon_bod_bodysnatch")
-                owner:StripWeapon("weapon_ttt_wtester")
 
+                -- Give the victim all of the attacker's role weapons
+                if WEAPON_CATEGORY_ROLE then
+                    for _, w in ipairs(owner:GetWeapons()) do
+                        if w.Category == WEAPON_CATEGORY_ROLE then
+                            local weap_class = WEPS.GetClass(w)
+                            owner:StripWeapon(weap_class)
+                            ply:Give(weap_class)
+                        end
+                    end
+                end
+
+                -- Give the attacker their own bodysnatching device
                 owner:Give("weapon_bod_bodysnatch")
-                ply:Give("weapon_ttt_wtester")
 
                 SendFullStateUpdate()
             end

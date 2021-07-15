@@ -44,6 +44,8 @@
         "ROLE_OLDMAN",
         "ROLE_BEGGAR",
         "ROLE_STRINGS_EXT",
-        "ROLE_BODYSNATCHER"
+        "ROLE_BODYSNATCHER",
+        "WEAPON_CATEGORY_ROLE",
+        "WEPS"
     ]
 }
