@@ -39,6 +39,11 @@
         "player",
         "ROLE_DRUNK",
         "HUD_PRINTTALK",
-        "HUD_PRINTCENTER"
+        "HUD_PRINTCENTER",
+        "ROLE_VETERAN",
+        "ROLE_OLDMAN",
+        "ROLE_BEGGAR",
+        "ROLE_STRINGS_EXT",
+        "ROLE_BODYSNATCHER"
     ]
 }
