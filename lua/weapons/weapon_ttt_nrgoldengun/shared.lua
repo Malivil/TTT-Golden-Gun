@@ -177,22 +177,23 @@ function SWEP:PrimaryAttack()
             end
         -- Have the drunk immediately remember their role
         elseif ply:GetRole() == ROLE_DRUNK then
-            local innocent = math.random() <= GetConVar("ttt_drunk_innocent_chance"):GetFloat()
-            local role = innocent and ROLE_INNOCENT or ROLE_TRAITOR
-            local roleString = innocent and "an innocent" or "a traitor"
+            if SERVER then
+                local role
+                if math.random() > GetConVar("ttt_drunk_innocent_chance"):GetFloat() then
+                    role = ROLE_TRAITOR
+                    ply:SetCredits(GetConVar("ttt_credits_starting"):GetInt())
+                else
+                    role = ROLE_INNOCENT
+                end
 
-            if CLIENT then
-                ply:PrintMessage(HUD_PRINTTALK, "You have remembered that you are " .. roleString .. ".")
-                ply:PrintMessage(HUD_PRINTCENTER, "You have remembered that you are " .. roleString .. ".")
-            else
                 ply:SetNWBool("WasDrunk", true)
                 ply:SetRole(role)
-                if not innocent then
-                    ply:SetCredits(GetConVar("ttt_credits_starting"):GetInt())
-                end
+                ply:PrintMessage(HUD_PRINTTALK, "You have remembered that you are " .. ROLE_STRINGS_EXT[role] .. ".")
+                ply:PrintMessage(HUD_PRINTCENTER, "You have remembered that you are " .. ROLE_STRINGS_EXT[role] .. ".")
+
                 net.Start("TTT_DrunkSober")
                 net.WriteString(ply:Nick())
-                net.WriteString(roleString)
+                net.WriteString(ROLE_STRINGS_EXT[role])
                 net.Broadcast()
 
                 SendFullStateUpdate()
