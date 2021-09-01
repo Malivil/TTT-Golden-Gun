@@ -182,25 +182,30 @@ function SWEP:PrimaryAttack()
         -- Have the drunk immediately remember their role
         elseif ply:GetRole() == ROLE_DRUNK then
             if SERVER then
-                local role
-                if math.random() > GetConVar("ttt_drunk_innocent_chance"):GetFloat() then
-                    role = ROLE_TRAITOR
-                    ply:SetCredits(GetConVar("ttt_credits_starting"):GetInt())
+                if ply.SoberDrunk then
+                    ply:SoberDrunk()
+                -- Fall back to default logic if we don't have the advanced drunk options
                 else
-                    role = ROLE_INNOCENT
+                    local role
+                    if math.random() > GetConVar("ttt_drunk_innocent_chance"):GetFloat() then
+                        role = ROLE_TRAITOR
+                        ply:SetCredits(GetConVar("ttt_credits_starting"):GetInt())
+                    else
+                        role = ROLE_INNOCENT
+                    end
+
+                    ply:SetNWBool("WasDrunk", true)
+                    ply:SetRole(role)
+                    ply:PrintMessage(HUD_PRINTTALK, "You have remembered that you are " .. ROLE_STRINGS_EXT[role] .. ".")
+                    ply:PrintMessage(HUD_PRINTCENTER, "You have remembered that you are " .. ROLE_STRINGS_EXT[role] .. ".")
+
+                    net.Start("TTT_DrunkSober")
+                    net.WriteString(ply:Nick())
+                    net.WriteString(ROLE_STRINGS_EXT[role])
+                    net.Broadcast()
+
+                    SendFullStateUpdate()
                 end
-
-                ply:SetNWBool("WasDrunk", true)
-                ply:SetRole(role)
-                ply:PrintMessage(HUD_PRINTTALK, "You have remembered that you are " .. ROLE_STRINGS_EXT[role] .. ".")
-                ply:PrintMessage(HUD_PRINTCENTER, "You have remembered that you are " .. ROLE_STRINGS_EXT[role] .. ".")
-
-                net.Start("TTT_DrunkSober")
-                net.WriteString(ply:Nick())
-                net.WriteString(ROLE_STRINGS_EXT[role])
-                net.Broadcast()
-
-                SendFullStateUpdate()
             end
         -- Switch roles with the bodysnatcher
         elseif ply:GetRole() == ROLE_BODYSNATCHER then
