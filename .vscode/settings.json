@@ -48,6 +48,9 @@
         "WEAPON_CATEGORY_ROLE",
         "WEPS",
         "CR_VERSION",
-        "CRVersion"
+        "CRVersion",
+        "ConVarExists",
+        "ROLE_CLOWN",
+        "timer"
     ]
 }

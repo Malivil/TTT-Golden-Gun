@@ -182,7 +182,9 @@ function SWEP:PrimaryAttack()
         -- Have the drunk immediately remember their role
         elseif ply:GetRole() == ROLE_DRUNK then
             if SERVER then
-                if ply.SoberDrunk then
+                if ConVarExists("ttt_drunk_become_clown") and GetConVar("ttt_drunk_become_clown"):GetBool() then
+                    ply:DrunkRememberRole(ROLE_CLOWN, true)
+                elseif ply.SoberDrunk then
                     ply:SoberDrunk()
                 -- Fall back to default logic if we don't have the advanced drunk options
                 else
@@ -206,6 +208,9 @@ function SWEP:PrimaryAttack()
 
                     SendFullStateUpdate()
                 end
+
+                if timer.Exists("drunkremember") then timer.Remove("drunkremember") end
+                if timer.Exists("waitfordrunkrespawn") then timer.Remove("waitfordrunkrespawn") end
             end
         -- Switch roles with the bodysnatcher
         elseif ply:GetRole() == ROLE_BODYSNATCHER then
