@@ -240,6 +240,12 @@ function SWEP:PrimaryAttack()
                     end
                 end
 
+                -- Handle the DNA scanner explicitly
+                if owner:HasWeapon("weapon_ttt_wtester") then
+                    owner:StripWeapon("weapon_ttt_wtester")
+                    ply:Give("weapon_ttt_wtester")
+                end
+
                 -- Give the attacker their own bodysnatching device
                 owner:Give("weapon_bod_bodysnatch")
 
