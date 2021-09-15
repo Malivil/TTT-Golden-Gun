@@ -127,7 +127,7 @@ end
 function SWEP:PrimaryAttack()
     if (not self:CanPrimaryAttack()) then return end
     self:SetNextPrimaryFire(CurTime() + self.Primary.Delay)
-    self.Weapon:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
+    self:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
     self:TakePrimaryAmmo(1)
     self:GetOwner():EmitSound(Sound("Weapon_Deagle.Single"))
 
