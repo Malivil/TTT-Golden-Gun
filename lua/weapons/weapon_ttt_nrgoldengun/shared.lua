@@ -111,6 +111,10 @@ local function IsIndependentTeam(ply)
     return ply.IsIndependentTeam and ply:IsIndependentTeam()
 end
 
+local function IsMonsterTeam(ply)
+    return ply.IsMonsterTeam and ply:IsMonsterTeam()
+end
+
 function SetRole(ply, role)
     ply:SetRole(role)
 
@@ -302,6 +306,11 @@ function SWEP:PrimaryAttack()
                 self:GetOwner():Kill()
                 ply:SetHealth(0)
                 ply:Kill()
+            end
+        -- Convert the shooter to the same role as the monster
+        elseif IsMonsterTeam(ply) then
+            if SERVER then
+                self:GetOwner():SetRole(ply:GetRole())
             end
         end
     end
