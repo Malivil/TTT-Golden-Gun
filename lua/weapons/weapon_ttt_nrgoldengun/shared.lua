@@ -311,6 +311,9 @@ function SWEP:PrimaryAttack()
         elseif IsMonsterTeam(ply) then
             if SERVER then
                 self:GetOwner():SetRole(ply:GetRole())
+                if self:GetOwner().StripRoleWeapons then
+                    self:GetOwner().StripRoleWeapons()
+                end
             end
         end
     end
