@@ -35,12 +35,12 @@ SWEP.Base = "weapon_tttbase"
 
 SWEP.HoldType = "pistol"
 
-SWEP.Primary.Delay = 0.08
-SWEP.Primary.Recoil = 1.2
+SWEP.Primary.Delay = 0.6
+SWEP.Primary.Recoil = 6
 SWEP.Primary.Automatic = true
 SWEP.Primary.Damage = 1
-SWEP.Primary.Cone = 0.025
-SWEP.Primary.Ammo = "AR2AltFire"
+SWEP.Primary.Cone = 0.005
+SWEP.Primary.Ammo = "AlyxGun"
 SWEP.Primary.ClipSize = 1
 SWEP.Primary.ClipMax = 1
 SWEP.Primary.DefaultClip = 1
@@ -51,7 +51,6 @@ SWEP.WorldModel = "models/weapons/w_powerdeagle.mdl"
 
 SWEP.Kind = WEAPON_EQUIP1
 SWEP.AutoSpawnable = false
-SWEP.AmmoEnt = "RPG_Round"
 SWEP.CanBuy = {ROLE_DETECTIVE}
 SWEP.InLoadoutFor = nil
 SWEP.LimitedStock = true
@@ -128,170 +127,161 @@ function SetRole(ply, role)
     net.Broadcast()
 end
 
-function SWEP:PrimaryAttack()
-    if (not self:CanPrimaryAttack()) then return end
-    self:SetNextPrimaryFire(CurTime() + self.Primary.Delay)
-    self:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
-    self:TakePrimaryAmmo(1)
-    self:GetOwner():EmitSound(Sound("Weapon_Deagle.Single"))
+function SWEP:OnPlayerAttacked(ply)
+    local owner = self:GetOwner()
+    ---- Set the owner on fire for 5 seconds
+    if ply:GetRole() == ROLE_PHANTOM then
+        if SERVER then owner:Ignite(5) end
+    -- Reduce the health of both the Owner and the Target by the configured amount
+    elseif ply:GetRole() == ROLE_KILLER then
+        if SERVER then
+            local killerdamage = GetConVar("ttt_gdeagle_killer_damage"):GetInt()
+            if owner:Health() > killerdamage then
+                owner:SetHealth(owner:Health() - killerdamage)
+            else
+                owner:Kill()
+            end
+            if ply:Health() > killerdamage then
+                ply:SetHealth(ply:Health() - killerdamage)
+            else
+                ply:Kill()
+            end
+        end
+    -- Turn the owner into a Zombie thrall
+    elseif ply:GetRole() == ROLE_ZOMBIE then
+        if SERVER then
+            net.Start("TTT_Zombified")
+            net.WriteString(owner:Nick())
+            net.Broadcast()
 
-    local trace = util.GetPlayerTrace(self:GetOwner())
-    local tr = util.TraceLine(trace)
-    if tr.Entity.IsPlayer() then
-        local ply = tr.Entity
-        -- Set the owner on fire for 5 seconds
-        if ply:GetRole() == ROLE_PHANTOM then
-            if SERVER then self:GetOwner():Ignite(5) end
-        -- Reduce the health of both the Owner and the Target by the configured amount
-        elseif ply:GetRole() == ROLE_KILLER then
-            if SERVER then
-                local killerdamage = GetConVar("ttt_gdeagle_killer_damage"):GetInt()
-                if self:GetOwner():Health() > killerdamage then
-                    self:GetOwner():SetHealth(self:GetOwner():Health() - killerdamage)
+            owner:SetRole(ROLE_ZOMBIE)
+            if owner.SetZombiePrime then
+                owner:SetZombiePrime(false)
+            end
+            owner:StripWeapons()
+            owner:Give("weapon_zom_claws")
+            SendFullStateUpdate()
+        end
+    -- Turn the owner into a pile of bones and heal the target
+    elseif ply:GetRole() == ROLE_VAMPIRE then
+        if SERVER then
+            local vamheal = GetConVar("ttt_gdeagle_vampire_heal"):GetInt()
+            local vamoverheal = GetConVar("ttt_gdeagle_vampire_overheal"):GetInt()
+            ply:SetHealth(math.min(ply:Health() + vamheal, ply:GetMaxHealth() + vamoverheal))
+            self:DropBones(owner)
+            local sid = owner:SteamID()
+            owner:Kill()
+            RemoveRagdoll(sid)
+        end
+    -- Have the drunk immediately remember their role
+    elseif ply:GetRole() == ROLE_DRUNK then
+        if SERVER then
+            if ConVarExists("ttt_drunk_become_clown") and GetConVar("ttt_drunk_become_clown"):GetBool() then
+                ply:DrunkRememberRole(ROLE_CLOWN, true)
+            elseif ply.SoberDrunk then
+                ply:SoberDrunk()
+            -- Fall back to default logic if we don't have the advanced drunk options
+            else
+                local role
+                if math.random() > GetConVar("ttt_drunk_innocent_chance"):GetFloat() then
+                    role = ROLE_TRAITOR
+                    ply:SetCredits(GetConVar("ttt_credits_starting"):GetInt())
                 else
-                    self:GetOwner():Kill()
-                end
-                if ply:Health() > killerdamage then
-                    ply:SetHealth(ply:Health() - killerdamage)
-                else
-                    ply:Kill()
-                end
-            end
-        -- Turn the owner into a Zombie thrall
-        elseif ply:GetRole() == ROLE_ZOMBIE then
-            if SERVER then
-                net.Start("TTT_Zombified")
-                net.WriteString(self:GetOwner():Nick())
-                net.Broadcast()
-
-                self:GetOwner():SetRole(ROLE_ZOMBIE)
-                if self:GetOwner().SetZombiePrime then
-                    self:GetOwner():SetZombiePrime(false)
-                end
-                self:GetOwner():StripWeapons()
-                self:GetOwner():Give("weapon_zom_claws")
-                SendFullStateUpdate()
-            end
-        -- Turn the owner into a pile of bones and heal the target
-        elseif ply:GetRole() == ROLE_VAMPIRE then
-            if SERVER then
-                local vamheal = GetConVar("ttt_gdeagle_vampire_heal"):GetInt()
-                local vamoverheal = GetConVar("ttt_gdeagle_vampire_overheal"):GetInt()
-                ply:SetHealth(math.min(ply:Health() + vamheal, ply:GetMaxHealth() + vamoverheal))
-                self:DropBones(self:GetOwner())
-                local sid = self:GetOwner():SteamID()
-                self:GetOwner():Kill()
-                RemoveRagdoll(sid)
-            end
-        -- Have the drunk immediately remember their role
-        elseif ply:GetRole() == ROLE_DRUNK then
-            if SERVER then
-                if ConVarExists("ttt_drunk_become_clown") and GetConVar("ttt_drunk_become_clown"):GetBool() then
-                    ply:DrunkRememberRole(ROLE_CLOWN, true)
-                elseif ply.SoberDrunk then
-                    ply:SoberDrunk()
-                -- Fall back to default logic if we don't have the advanced drunk options
-                else
-                    local role
-                    if math.random() > GetConVar("ttt_drunk_innocent_chance"):GetFloat() then
-                        role = ROLE_TRAITOR
-                        ply:SetCredits(GetConVar("ttt_credits_starting"):GetInt())
-                    else
-                        role = ROLE_INNOCENT
-                    end
-
-                    ply:SetNWBool("WasDrunk", true)
-                    ply:SetRole(role)
-                    ply:PrintMessage(HUD_PRINTTALK, "You have remembered that you are " .. ROLE_STRINGS_EXT[role] .. ".")
-                    ply:PrintMessage(HUD_PRINTCENTER, "You have remembered that you are " .. ROLE_STRINGS_EXT[role] .. ".")
-
-                    net.Start("TTT_DrunkSober")
-                    net.WriteString(ply:Nick())
-                    net.WriteString(ROLE_STRINGS_EXT[role])
-                    net.Broadcast()
-
-                    SendFullStateUpdate()
+                    role = ROLE_INNOCENT
                 end
 
-                if timer.Exists("drunkremember") then timer.Remove("drunkremember") end
-                if timer.Exists("waitfordrunkrespawn") then timer.Remove("waitfordrunkrespawn") end
-            end
-        -- Switch roles with the bodysnatcher
-        elseif ply:GetRole() == ROLE_BODYSNATCHER then
-            if SERVER then
-                local owner = self:GetOwner()
-                net.Start("TTT_ScoreBodysnatch")
-                net.WriteString(owner:Nick())
+                ply:SetNWBool("WasDrunk", true)
+                ply:SetRole(role)
+                ply:PrintMessage(HUD_PRINTTALK, "You have remembered that you are " .. ROLE_STRINGS_EXT[role] .. ".")
+                ply:PrintMessage(HUD_PRINTCENTER, "You have remembered that you are " .. ROLE_STRINGS_EXT[role] .. ".")
+
+                net.Start("TTT_DrunkSober")
                 net.WriteString(ply:Nick())
-                net.WriteString(ROLE_STRINGS_EXT[owner:GetRole()])
+                net.WriteString(ROLE_STRINGS_EXT[role])
                 net.Broadcast()
 
-                local victim_role = ply:GetRole()
-                local attacker_role = owner:GetRole()
-                owner:SetRole(victim_role)
-                ply:SetRole(attacker_role)
+                SendFullStateUpdate()
+            end
 
-                ply:StripWeapon("weapon_bod_bodysnatch")
+            if timer.Exists("drunkremember") then timer.Remove("drunkremember") end
+            if timer.Exists("waitfordrunkrespawn") then timer.Remove("waitfordrunkrespawn") end
+        end
+    -- Switch roles with the bodysnatcher
+    elseif ply:GetRole() == ROLE_BODYSNATCHER then
+        if SERVER then
+            net.Start("TTT_ScoreBodysnatch")
+            net.WriteString(owner:Nick())
+            net.WriteString(ply:Nick())
+            net.WriteString(ROLE_STRINGS_EXT[owner:GetRole()])
+            net.Broadcast()
 
-                -- Give the victim all of the attacker's role weapons
-                if WEAPON_CATEGORY_ROLE then
-                    for _, w in ipairs(owner:GetWeapons()) do
-                        if w.Category == WEAPON_CATEGORY_ROLE then
-                            local weap_class = WEPS.GetClass(w)
-                            owner:StripWeapon(weap_class)
-                            ply:Give(weap_class)
-                        end
+            local victim_role = ply:GetRole()
+            local attacker_role = owner:GetRole()
+            owner:SetRole(victim_role)
+            ply:SetRole(attacker_role)
+
+            ply:StripWeapon("weapon_bod_bodysnatch")
+
+            -- Give the victim all of the attacker's role weapons
+            if WEAPON_CATEGORY_ROLE then
+                for _, w in ipairs(owner:GetWeapons()) do
+                    if w.Category == WEAPON_CATEGORY_ROLE then
+                        local weap_class = WEPS.GetClass(w)
+                        owner:StripWeapon(weap_class)
+                        ply:Give(weap_class)
                     end
                 end
-
-                -- Handle the DNA scanner explicitly
-                if owner:HasWeapon("weapon_ttt_wtester") then
-                    owner:StripWeapon("weapon_ttt_wtester")
-                    ply:Give("weapon_ttt_wtester")
-                end
-
-                -- Give the attacker their own bodysnatching device
-                owner:Give("weapon_bod_bodysnatch")
-
-                SendFullStateUpdate()
             end
-        -- Change beggars to be the opposite team of the player who shot them (or a random team if shot by a Jester or Independent)
-        elseif ply:GetRole() == ROLE_BEGGAR then
-            if SERVER then
-                local target_role
-                if IsTraitorTeam(self:GetOwner()) then
-                    target_role = ROLE_INNOCENT
-                elseif IsInnocentTeam(self:GetOwner()) then
-                    target_role = ROLE_TRAITOR
-                else
-                    target_role = math.random(0, 1) == 1 and ROLE_INNOCENT or ROLE_TRAITOR
-                end
-                SetRole(ply, target_role)
 
-                SendFullStateUpdate()
+            -- Handle the DNA scanner explicitly
+            if owner:HasWeapon("weapon_ttt_wtester") then
+                owner:StripWeapon("weapon_ttt_wtester")
+                ply:Give("weapon_ttt_wtester")
             end
-        -- Kill traitors outright
-        elseif IsTraitorTeam(ply) then
-            local bullet = {}
-            bullet.Attacker = self:GetOwner()
-            bullet.Num = self.Primary.NumberofShots
-            bullet.Src = self:GetOwner():GetShootPos()
-            bullet.Dir = self:GetOwner():GetAimVector()
-            bullet.Spread = Vector(0, 0, 0)
-            bullet.Tracer = 0
-            bullet.Force = 3000
-            bullet.Damage = 4000
-            bullet.AmmoType = self.Primary.Ammo
-            self:GetOwner():FireBullets(bullet)
-        -- Kill the owner if the target was innocent
-        elseif IsInnocentTeam(ply) then
-            if SERVER then self:GetOwner():Kill() end
-        -- Set the shooter's health to the target's health, if it's less than 100
-        -- Then restore the target's max health to at least 100 and fully heal them
-        elseif IsIndependentTeam(ply) then
+
+            -- Give the attacker their own bodysnatching device
+            owner:Give("weapon_bod_bodysnatch")
+
+            SendFullStateUpdate()
+        end
+    -- Change beggars to be the opposite team of the player who shot them (or a random team if shot by a Jester or Independent)
+    elseif ply:GetRole() == ROLE_BEGGAR then
+        if SERVER then
+            local target_role
+            if IsTraitorTeam(owner) then
+                target_role = ROLE_INNOCENT
+            elseif IsInnocentTeam(owner) then
+                target_role = ROLE_TRAITOR
+            else
+                target_role = math.random(0, 1) == 1 and ROLE_INNOCENT or ROLE_TRAITOR
+            end
+            SetRole(ply, target_role)
+
+            SendFullStateUpdate()
+        end
+    -- Kill traitors outright
+    elseif IsTraitorTeam(ply) then
+        local bullet = {}
+        bullet.Attacker = owner
+        bullet.Num = self.Primary.NumberofShots
+        bullet.Src = owner:GetShootPos()
+        bullet.Dir = owner:GetAimVector()
+        bullet.Spread = Vector(0, 0, 0)
+        bullet.Tracer = 0
+        bullet.Force = 3000
+        bullet.Damage = 4000
+        bullet.AmmoType = self.Primary.Ammo
+        owner:FireBullets(bullet)
+    -- Kill the owner if the target was innocent
+    elseif IsInnocentTeam(ply) then
+        if SERVER then owner:Kill() end
+    -- Set the shooter's health to the target's health, if it's less than 100
+    -- Then restore the target's max health to at least 100 and fully heal them
+    elseif IsIndependentTeam(ply) then
+        if SERVER then
             local hp = ply:Health()
-            if hp < 100 and hp < self:GetOwner():Health() then
-                self:GetOwner():SetHealth(hp)
+            if hp < 100 and hp < owner:Health() then
+                owner:SetHealth(hp)
             end
 
             local max = ply:GetMaxHealth()
@@ -300,23 +290,50 @@ function SWEP:PrimaryAttack()
             end
             ply:SetMaxHealth(max)
             ply:SetHealth(max)
-        -- Kill the jester team and the shooter
-        elseif IsJesterTeam(ply) then
-            if SERVER then
-                self:GetOwner():Kill()
-                ply:SetHealth(0)
-                ply:Kill()
-            end
-        -- Convert the shooter to the same role as the monster
-        elseif IsMonsterTeam(ply) then
-            if SERVER then
-                self:GetOwner():SetRole(ply:GetRole())
-                if self:GetOwner().StripRoleWeapons then
-                    self:GetOwner().StripRoleWeapons()
-                end
+        end
+    -- Kill the jester team and the shooter
+    elseif IsJesterTeam(ply) then
+        if SERVER then
+            owner:Kill()
+            ply:SetHealth(0)
+            ply:Kill()
+        end
+    -- Convert the shooter to the same role as the monster
+    elseif IsMonsterTeam(ply) then
+        if SERVER then
+            owner:SetRole(ply:GetRole())
+            if owner.StripRoleWeapons then
+                owner.StripRoleWeapons()
             end
         end
     end
+end
+
+function SWEP:PrimaryAttack()
+    if not self:CanPrimaryAttack() then return end
+    self:SetNextPrimaryFire(CurTime() + self.Primary.Delay)
+    self:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
+    self:TakePrimaryAmmo(1)
+    self:GetOwner():EmitSound(Sound("Weapon_Deagle.Single"))
+
+    local owner = self:GetOwner()
+    local aimcone = self.Primary.Cone
+    local bullet = {}
+	bullet.Num		= 1
+	bullet.Src		= owner:GetShootPos()           -- Source
+	bullet.Dir		= owner:GetAimVector()          -- Dir of bullet
+	bullet.Spread	= Vector(aimcone, aimcone, 0)   -- Aim Cone
+	bullet.Tracer	= 5	                            -- Show a tracer on every x bullets
+	bullet.Force	= 1                             -- Amount of force to give to phys objects
+	bullet.Damage	= self.Primary.Damage
+	bullet.AmmoType = self.Primary.Ammo
+    bullet.Attacker = owner
+    bullet.Callback = function(attacker, tr, dmginfo)
+        if IsPlayer(tr.Entity) then
+            self:OnPlayerAttacked(tr.Entity)
+        end
+    end
+	owner:FireBullets(bullet)
 end
 
 function RemoveRagdoll(sid)
