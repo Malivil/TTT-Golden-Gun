@@ -41,9 +41,9 @@ SWEP.Primary.Automatic = true
 SWEP.Primary.Damage = 1
 SWEP.Primary.Cone = 0.005
 SWEP.Primary.Ammo = "AlyxGun"
-SWEP.Primary.ClipSize = 1
-SWEP.Primary.ClipMax = 1
-SWEP.Primary.DefaultClip = 1
+SWEP.Primary.ClipSize = 2
+SWEP.Primary.ClipMax = 2
+SWEP.Primary.DefaultClip = 2
 SWEP.Primary.Sound = Sound("Weapon_Deagle.Single")
 
 SWEP.ViewModel = "models/weapons/v_powerdeagle.mdl"
@@ -330,6 +330,7 @@ function SWEP:PrimaryAttack()
     bullet.Attacker = owner
     bullet.Callback = function(attacker, tr, dmginfo)
         if IsPlayer(tr.Entity) then
+            self:SetClip1(0)
             self:OnPlayerAttacked(tr.Entity)
         end
     end
