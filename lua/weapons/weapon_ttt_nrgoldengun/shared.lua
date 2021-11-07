@@ -314,7 +314,9 @@ function SWEP:PrimaryAttack()
     self:SetNextPrimaryFire(CurTime() + self.Primary.Delay)
     self:SendWeaponAnim(ACT_VM_PRIMARYATTACK)
     self:TakePrimaryAmmo(1)
-    self:GetOwner():EmitSound(Sound("Weapon_Deagle.Single"))
+    if SERVER then
+        self:GetOwner():EmitSound(Sound("Weapon_Deagle.Single"))
+    end
 
     local owner = self:GetOwner()
     local aimcone = self.Primary.Cone
