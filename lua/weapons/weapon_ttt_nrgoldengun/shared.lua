@@ -69,13 +69,16 @@ if CLIENT then
     };
 end
 
-if SERVER then resource.AddFile("materials/VGUI/ttt/icon_flux_goldengun.vmt") end
+if SERVER then
+    resource.AddFile("materials/VGUI/ttt/icon_flux_goldengun.vmt")
 
-CreateConVar("ttt_gdeagle_killer_damage", "35")
-CreateConVar("ttt_gdeagle_vampire_heal", "50")
-CreateConVar("ttt_gdeagle_vampire_overheal", "25")
-CreateConVar("ttt_gdeagle_simplified", "0")
-CreateConVar("ttt_gdeagle_ammo", "2", FCVAR_REPLICATED)
+    CreateConVar("ttt_gdeagle_killer_damage", "35")
+    CreateConVar("ttt_gdeagle_vampire_heal", "50")
+    CreateConVar("ttt_gdeagle_vampire_overheal", "25")
+end
+
+local gdeagle_simplified = CreateConVar("ttt_gdeagle_simplified", "0", FCVAR_REPLICATED)
+local gdeagle_ammo = CreateConVar("ttt_gdeagle_ammo", "2", FCVAR_REPLICATED)
 
 ROLE_MERCENARY = ROLE_MERCENARY or ROLE_SURVIVALIST or -1
 ROLE_PHANTOM = ROLE_PHANTOM or ROLE_PHOENIX or -1
@@ -129,8 +132,22 @@ function SetRole(ply, role)
     net.Broadcast()
 end
 
+local function ShootBullet(owner, numShots, ammoType)
+    local bullet = {}
+    bullet.Attacker = owner
+    bullet.Num = numShots
+    bullet.Src = owner:GetShootPos()
+    bullet.Dir = owner:GetAimVector()
+    bullet.Spread = Vector(0, 0, 0)
+    bullet.Tracer = 0
+    bullet.Force = 3000
+    bullet.Damage = 4000
+    bullet.AmmoType = ammoType
+    owner:FireBullets(bullet)
+end
+
 function SWEP:Initialize()
-    local ammo = GetConVar("ttt_gdeagle_ammo"):GetInt()
+    local ammo = gdeagle_ammo:GetInt()
     self.Primary.ClipSize = ammo
     self.Primary.ClipMax = ammo
     self.Primary.DefaultClip = ammo
@@ -143,23 +160,11 @@ function SWEP:OnPlayerAttacked(ply)
     -- If simplified convar is on, traitors, monsters, and independents are killed on being shot
     -- Innocents kill the shooter instead
     -- Jesters cause nothing to happen
-    if GetConVar("ttt_gdeagle_simplified"):GetBool() then
+    if gdeagle_simplified:GetBool() then
         if IsTraitorTeam(ply) or IsMonsterTeam(ply) or IsIndependentTeam(ply) then
-            local bullet = {}
-            bullet.Attacker = owner
-            bullet.Num = self.Primary.NumberofShots
-            bullet.Src = owner:GetShootPos()
-            bullet.Dir = owner:GetAimVector()
-            bullet.Spread = Vector(0, 0, 0)
-            bullet.Tracer = 0
-            bullet.Force = 3000
-            bullet.Damage = 4000
-            bullet.AmmoType = self.Primary.Ammo
-            owner:FireBullets(bullet)
-        -- Innocents kill the shooter instead
+            ShootBullet(owner, self.Primary.NumberofShots, self.Primary.Ammo)
         elseif IsInnocentTeam(ply) then
             if SERVER then owner:Kill() end
-        -- Jesters cause nothing to happen
         elseif IsJesterTeam(ply) then
             return
         end
@@ -300,17 +305,7 @@ function SWEP:OnPlayerAttacked(ply)
         end
     -- Kill traitors outright
     elseif IsTraitorTeam(ply) then
-        local bullet = {}
-        bullet.Attacker = owner
-        bullet.Num = self.Primary.NumberofShots
-        bullet.Src = owner:GetShootPos()
-        bullet.Dir = owner:GetAimVector()
-        bullet.Spread = Vector(0, 0, 0)
-        bullet.Tracer = 0
-        bullet.Force = 3000
-        bullet.Damage = 4000
-        bullet.AmmoType = self.Primary.Ammo
-        owner:FireBullets(bullet)
+        ShootBullet(owner, self.Primary.NumberofShots, self.Primary.Ammo)
     -- Kill the owner if the target was innocent
     elseif IsInnocentTeam(ply) then
         if SERVER then owner:Kill() end
@@ -340,7 +335,7 @@ function SWEP:OnPlayerAttacked(ply)
     -- Convert the shooter to the same role as the monster
     elseif IsMonsterTeam(ply) then
         if SERVER then
-            owner:SetRole(ply:GetRole())
+            SetRole(owner, ply:GetRole())
             if owner.StripRoleWeapons then
                 owner.StripRoleWeapons()
             end
