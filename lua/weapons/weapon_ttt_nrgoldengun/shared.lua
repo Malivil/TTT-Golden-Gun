@@ -130,6 +130,8 @@ function SetRole(ply, role)
         net.WriteUInt(role, 8)
     end
     net.Broadcast()
+
+    SendFullStateUpdate()
 end
 
 local function ShootBullet(owner, numShots, ammoType)
@@ -300,8 +302,6 @@ function SWEP:OnPlayerAttacked(ply)
                 target_role = math.random(0, 1) == 1 and ROLE_INNOCENT or ROLE_TRAITOR
             end
             SetRole(ply, target_role)
-
-            SendFullStateUpdate()
         end
     -- Kill traitors outright
     elseif IsTraitorTeam(ply) then
@@ -337,7 +337,7 @@ function SWEP:OnPlayerAttacked(ply)
         if SERVER then
             SetRole(owner, ply:GetRole())
             if owner.StripRoleWeapons then
-                owner.StripRoleWeapons()
+                owner:StripRoleWeapons()
             end
         end
     end
