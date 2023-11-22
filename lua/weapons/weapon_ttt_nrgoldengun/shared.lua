@@ -3,16 +3,16 @@ if SERVER then
     AddCSLuaFile("shared.lua")
 
     resource.AddFile("materials/models/weapons/v_models/powerdeagle/deagle_skin.vmt")
-	resource.AddFile("materials/models/weapons/v_models/powerdeagle/deagle_skin.vtf")
-	resource.AddFile("materials/models/weapons/v_models/powerdeagle/deagle_skin1_ref.vtf")
-	resource.AddFile("materials/models/weapons/v_models/powerdeagle/dot2.vmt")
-	resource.AddFile("materials/models/weapons/v_models/powerdeagle/dot2.vtf")
-	resource.AddFile("materials/models/weapons/v_models/powerdeagle/line.vmt")
-	resource.AddFile("materials/models/weapons/v_models/powerdeagle/line.vtf")
-	resource.AddFile("materials/models/weapons/v_models/powerdeagle/suppressor.vmt")
-	resource.AddFile("materials/models/weapons/v_models/powerdeagle/suppressor.vtf")
-	resource.AddFile("materials/models/weapons/v_models/feets/v_hands.vmt")
-	resource.AddFile("materials/models/weapons/v_models/feets/v_hands.vtf")
+    resource.AddFile("materials/models/weapons/v_models/powerdeagle/deagle_skin.vtf")
+    resource.AddFile("materials/models/weapons/v_models/powerdeagle/deagle_skin1_ref.vtf")
+    resource.AddFile("materials/models/weapons/v_models/powerdeagle/dot2.vmt")
+    resource.AddFile("materials/models/weapons/v_models/powerdeagle/dot2.vtf")
+    resource.AddFile("materials/models/weapons/v_models/powerdeagle/line.vmt")
+    resource.AddFile("materials/models/weapons/v_models/powerdeagle/line.vtf")
+    resource.AddFile("materials/models/weapons/v_models/powerdeagle/suppressor.vmt")
+    resource.AddFile("materials/models/weapons/v_models/powerdeagle/suppressor.vtf")
+    resource.AddFile("materials/models/weapons/v_models/feets/v_hands.vmt")
+    resource.AddFile("materials/models/weapons/v_models/feets/v_hands.vtf")
     resource.AddFile("materials/models/weapons/v_models/feets/v_hands_normal.vtf")
 
     util.AddNetworkString("TTT_RoleChanged")
@@ -119,7 +119,7 @@ local function IsMonsterTeam(ply)
     return ply.IsMonsterTeam and ply:IsMonsterTeam()
 end
 
-function SetRole(ply, role)
+local function SetRole(ply, role)
     ply:SetRole(role)
 
     net.Start("TTT_RoleChanged")
@@ -215,9 +215,11 @@ function SWEP:OnPlayerAttacked(ply)
             local vamoverheal = GetConVar("ttt_gdeagle_vampire_overheal"):GetInt()
             ply:SetHealth(math.min(ply:Health() + vamheal, ply:GetMaxHealth() + vamoverheal))
             self:DropBones(owner)
-            local sid = owner:SteamID()
             owner:Kill()
-            RemoveRagdoll(sid)
+            local body = owner.server_ragdoll or owner:GetRagdollEntity()
+            if IsValid(body) then
+                body:Remove()
+            end
         end
     -- Have the drunk immediately remember their role
     elseif ply:GetRole() == ROLE_DRUNK then
@@ -355,14 +357,14 @@ function SWEP:PrimaryAttack()
     local owner = self:GetOwner()
     local aimcone = self.Primary.Cone
     local bullet = {}
-	bullet.Num		= 1
-	bullet.Src		= owner:GetShootPos()           -- Source
-	bullet.Dir		= owner:GetAimVector()          -- Dir of bullet
-	bullet.Spread	= Vector(aimcone, aimcone, 0)   -- Aim Cone
-	bullet.Tracer	= 5	                            -- Show a tracer on every x bullets
-	bullet.Force	= 1                             -- Amount of force to give to phys objects
-	bullet.Damage	= self.Primary.Damage
-	bullet.AmmoType = self.Primary.Ammo
+    bullet.Num      = 1
+    bullet.Src      = owner:GetShootPos()           -- Source
+    bullet.Dir      = owner:GetAimVector()          -- Dir of bullet
+    bullet.Spread   = Vector(aimcone, aimcone, 0)   -- Aim Cone
+    bullet.Tracer   = 5                             -- Show a tracer on every x bullets
+    bullet.Force    = 1                             -- Amount of force to give to phys objects
+    bullet.Damage   = self.Primary.Damage
+    bullet.AmmoType = self.Primary.Ammo
     bullet.Attacker = owner
     bullet.Callback = function(attacker, tr, dmginfo)
         if IsPlayer(tr.Entity) then
@@ -370,46 +372,37 @@ function SWEP:PrimaryAttack()
             self:OnPlayerAttacked(tr.Entity)
         end
     end
-	owner:FireBullets(bullet)
-end
-
-function RemoveRagdoll(sid)
-    local ragdolls = ents.FindByClass("prop_ragdoll")
-    for _, r in pairs(ragdolls) do
-        if IsValid(r) and r.player_ragdoll == true and r.sid == sid then
-            r:Remove()
-        end
-    end
+    owner:FireBullets(bullet)
 end
 
 function SWEP:DropBones(target)
-	local pos = target:GetPos()
+    local pos = target:GetPos()
 
-	local skull = ents.Create("prop_physics")
-	if not IsValid(skull) then return end
-	skull:SetModel("models/Gibs/HGIBS.mdl")
-	skull:SetPos(pos)
-	skull:Spawn()
-	skull:SetCollisionGroup(COLLISION_GROUP_WEAPON)
+    local skull = ents.Create("prop_physics")
+    if not IsValid(skull) then return end
+    skull:SetModel("models/Gibs/HGIBS.mdl")
+    skull:SetPos(pos)
+    skull:Spawn()
+    skull:SetCollisionGroup(COLLISION_GROUP_WEAPON)
 
-	local ribs = ents.Create("prop_physics")
-	if not IsValid(ribs) then return end
-	ribs:SetModel("models/Gibs/HGIBS_rib.mdl")
-	ribs:SetPos(pos + Vector(0, 0, 15))
-	ribs:Spawn()
-	ribs:SetCollisionGroup(COLLISION_GROUP_WEAPON)
+    local ribs = ents.Create("prop_physics")
+    if not IsValid(ribs) then return end
+    ribs:SetModel("models/Gibs/HGIBS_rib.mdl")
+    ribs:SetPos(pos + Vector(0, 0, 15))
+    ribs:Spawn()
+    ribs:SetCollisionGroup(COLLISION_GROUP_WEAPON)
 
-	local spine = ents.Create("prop_physics")
-	if not IsValid(ribs) then return end
-	spine:SetModel("models/Gibs/HGIBS_spine.mdl")
-	spine:SetPos(pos + Vector(0, 0, 30))
-	spine:Spawn()
-	spine:SetCollisionGroup(COLLISION_GROUP_WEAPON)
+    local spine = ents.Create("prop_physics")
+    if not IsValid(ribs) then return end
+    spine:SetModel("models/Gibs/HGIBS_spine.mdl")
+    spine:SetPos(pos + Vector(0, 0, 30))
+    spine:Spawn()
+    spine:SetCollisionGroup(COLLISION_GROUP_WEAPON)
 
-	local scapula = ents.Create("prop_physics")
-	if not IsValid(scapula) then return end
-	scapula:SetModel("models/Gibs/HGIBS_scapula.mdl")
-	scapula:SetPos(pos + Vector(0, 0, 45))
-	scapula:Spawn()
-	scapula:SetCollisionGroup(COLLISION_GROUP_WEAPON)
+    local scapula = ents.Create("prop_physics")
+    if not IsValid(scapula) then return end
+    scapula:SetModel("models/Gibs/HGIBS_scapula.mdl")
+    scapula:SetPos(pos + Vector(0, 0, 45))
+    scapula:Spawn()
+    scapula:SetCollisionGroup(COLLISION_GROUP_WEAPON)
 end
