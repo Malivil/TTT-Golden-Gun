@@ -2,19 +2,6 @@
 if SERVER then
     AddCSLuaFile("shared.lua")
 
-    resource.AddFile("materials/models/weapons/v_models/powerdeagle/deagle_skin.vmt")
-    resource.AddFile("materials/models/weapons/v_models/powerdeagle/deagle_skin.vtf")
-    resource.AddFile("materials/models/weapons/v_models/powerdeagle/deagle_skin1_ref.vtf")
-    resource.AddFile("materials/models/weapons/v_models/powerdeagle/dot2.vmt")
-    resource.AddFile("materials/models/weapons/v_models/powerdeagle/dot2.vtf")
-    resource.AddFile("materials/models/weapons/v_models/powerdeagle/line.vmt")
-    resource.AddFile("materials/models/weapons/v_models/powerdeagle/line.vtf")
-    resource.AddFile("materials/models/weapons/v_models/powerdeagle/suppressor.vmt")
-    resource.AddFile("materials/models/weapons/v_models/powerdeagle/suppressor.vtf")
-    resource.AddFile("materials/models/weapons/v_models/feets/v_hands.vmt")
-    resource.AddFile("materials/models/weapons/v_models/feets/v_hands.vtf")
-    resource.AddFile("materials/models/weapons/v_models/feets/v_hands_normal.vtf")
-
     util.AddNetworkString("TTT_RoleChanged")
     util.AddNetworkString("TTT_Zombified")
     util.AddNetworkString("TTT_DrunkSober")
