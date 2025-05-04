@@ -121,17 +121,18 @@ local function SetRole(ply, role)
     SendFullStateUpdate()
 end
 
-local function ShootBullet(owner, numShots, ammoType)
+local function ShootBullet(owner, numShots, ammoType, weap)
     local bullet = {}
-    bullet.Attacker = owner
-    bullet.Num = numShots
-    bullet.Src = owner:GetShootPos()
-    bullet.Dir = owner:GetAimVector()
-    bullet.Spread = Vector(0, 0, 0)
-    bullet.Tracer = 0
-    bullet.Force = 3000
-    bullet.Damage = 4000
-    bullet.AmmoType = ammoType
+    bullet.Attacker  = owner
+    bullet.Inflictor = weap
+    bullet.Num       = numShots
+    bullet.Src       = owner:GetShootPos()
+    bullet.Dir       = owner:GetAimVector()
+    bullet.Spread    = Vector(0, 0, 0)
+    bullet.Tracer    = 0
+    bullet.Force     = 3000
+    bullet.Damage    = 4000
+    bullet.AmmoType  = ammoType
     owner:FireBullets(bullet)
 end
 
@@ -151,7 +152,7 @@ function SWEP:OnPlayerAttacked(ply)
     -- Jesters cause nothing to happen
     if gdeagle_simplified:GetBool() then
         if IsTraitorTeam(ply) or IsMonsterTeam(ply) or IsIndependentTeam(ply) then
-            ShootBullet(owner, self.Primary.NumberofShots, self.Primary.Ammo)
+            ShootBullet(owner, self.Primary.NumberofShots, self.Primary.Ammo, self)
         elseif IsInnocentTeam(ply) then
             if SERVER then owner:Kill() end
         elseif IsJesterTeam(ply) then
@@ -294,7 +295,7 @@ function SWEP:OnPlayerAttacked(ply)
         end
     -- Kill traitors outright
     elseif IsTraitorTeam(ply) then
-        ShootBullet(owner, self.Primary.NumberofShots, self.Primary.Ammo)
+        ShootBullet(owner, self.Primary.NumberofShots, self.Primary.Ammo, self)
     -- Kill the owner if the target was innocent
     elseif IsInnocentTeam(ply) then
         if SERVER then owner:Kill() end
@@ -344,16 +345,17 @@ function SWEP:PrimaryAttack()
     local owner = self:GetOwner()
     local aimcone = self.Primary.Cone
     local bullet = {}
-    bullet.Num      = 1
-    bullet.Src      = owner:GetShootPos()           -- Source
-    bullet.Dir      = owner:GetAimVector()          -- Dir of bullet
-    bullet.Spread   = Vector(aimcone, aimcone, 0)   -- Aim Cone
-    bullet.Tracer   = 5                             -- Show a tracer on every x bullets
-    bullet.Force    = 1                             -- Amount of force to give to phys objects
-    bullet.Damage   = self.Primary.Damage
-    bullet.AmmoType = self.Primary.Ammo
-    bullet.Attacker = owner
-    bullet.Callback = function(attacker, tr, dmginfo)
+    bullet.Num       = 1
+    bullet.Src       = owner:GetShootPos()           -- Source
+    bullet.Dir       = owner:GetAimVector()          -- Dir of bullet
+    bullet.Spread    = Vector(aimcone, aimcone, 0)   -- Aim Cone
+    bullet.Tracer    = 5                             -- Show a tracer on every x bullets
+    bullet.Force     = 1                             -- Amount of force to give to phys objects
+    bullet.Damage    = self.Primary.Damage
+    bullet.AmmoType  = self.Primary.Ammo
+    bullet.Attacker  = owner
+    bullet.Inflictor = self
+    bullet.Callback  = function(attacker, tr, dmginfo)
         if IsPlayer(tr.Entity) then
             self:SetClip1(0)
             self:OnPlayerAttacked(tr.Entity)
